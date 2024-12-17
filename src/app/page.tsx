@@ -22,6 +22,17 @@ type ChartData = {
   }[];
 };
 
+type RowData = {
+  STTN: string;
+  [key: string]: string | undefined; // 동적 키를 허용하기 위한 타입
+};
+
+type JsonData = {
+  CardSubwayTime: {
+    row: RowData[];
+  };
+};
+
 const StationData = () => {
   const [selectedStation, setSelectedStation] = useState("서울역"); // 선택된 역 상태
   const [chartData, setChartData] = useState<ChartData>({
@@ -50,14 +61,14 @@ const StationData = () => {
       const res = await fetch("http://openapi.seoul.go.kr:8088/sample/xml/CardSubwayTime/1/5/202411/");
       const xmlData = await res.text();
 
-      const jsonData: any = await parseStringPromise(xmlData, { explicitArray: false });
+      const jsonData: JsonData = await parseStringPromise(xmlData, { explicitArray: false });
       console.log("JSON Data:", jsonData);
 
       const rows = jsonData.CardSubwayTime.row;
 
       // 선택된 역에 해당하는 데이터만 필터링
       const filteredRow = Array.isArray(rows)
-        ? rows.find((row: any) => row.STTN === station)
+        ? rows.find((row) => row.STTN === station)
         : rows;
 
       if (!filteredRow) {
@@ -86,7 +97,7 @@ const StationData = () => {
   // 데이터 처음 로드 및 역 변경 시마다 데이터 새로 불러오기
   useEffect(() => {
     fetchData(selectedStation);
-  }, [selectedStation]);
+  }, [selectedStation]); // selectedStation이 변경될 때마다 fetchData 실행
 
   // 역 선택 변경 처리 함수
   const handleStationChange = (event: SelectChangeEvent) => {
