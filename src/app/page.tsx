@@ -10,6 +10,7 @@ import { SelectChangeEvent } from "@mui/material";
 // Chart.js 설정
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
+// 타입 정의
 type ChartData = {
   labels: string[]; // 시간대
   datasets: {
@@ -43,47 +44,51 @@ const StationData = () => {
     ],
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("http://openapi.seoul.go.kr:8088/sample/xml/CardSubwayTime/1/5/202411/");
-        const xmlData = await res.text();
+  // 데이터 불러오는 함수
+  const fetchData = async (station: string) => {
+    try {
+      const res = await fetch("http://openapi.seoul.go.kr:8088/sample/xml/CardSubwayTime/1/5/202411/");
+      const xmlData = await res.text();
 
-        const jsonData: any = await parseStringPromise(xmlData, { explicitArray: false });
-        console.log("JSON Data:", jsonData);
+      const jsonData: any = await parseStringPromise(xmlData, { explicitArray: false });
+      console.log("JSON Data:", jsonData);
 
-        const rows = jsonData.CardSubwayTime.row; // row 데이터 접근
+      const rows = jsonData.CardSubwayTime.row;
 
-        const filteredRow = Array.isArray(rows)
-          ? rows.find((row: any) => row.STTN === selectedStation) // 선택된 역 데이터만 필터링
-          : rows;
+      // 선택된 역에 해당하는 데이터만 필터링
+      const filteredRow = Array.isArray(rows)
+        ? rows.find((row: any) => row.STTN === station)
+        : rows;
 
-        if (!filteredRow) {
-          console.error(`No data found for the station: ${selectedStation}`);
-          return;
-        }
-
-        // 시간대와 승차/하차 데이터 추출
-        const times = Array.from({ length: 24 }, (_, i) => `${i}시`); // 0시~23시
-        const rideData = times.map((_, i) => Number(filteredRow[`HR_${i}_GET_ON_NOPE`]) || 0);
-        const getOffData = times.map((_, i) => Number(filteredRow[`HR_${i}_GET_OFF_NOPE`]) || 0);
-
-        // 차트 데이터 업데이트
-        setChartData({
-          labels: times,
-          datasets: [
-            { ...chartData.datasets[0], data: rideData },
-            { ...chartData.datasets[1], data: getOffData },
-          ],
-        });
-      } catch (error) {
-        console.error("Error fetching or processing data:", error);
+      if (!filteredRow) {
+        console.error(`No data found for the station: ${station}`);
+        return;
       }
-    };
 
-    fetchData();
-  }, [selectedStation]); // selectedStation이 변경될 때마다 fetchData 실행
+      // 시간대와 승차/하차 데이터 추출
+      const times = Array.from({ length: 24 }, (_, i) => `${i}시`); // 0시~23시
+      const rideData = times.map((_, i) => Number(filteredRow[`HR_${i}_GET_ON_NOPE`]) || 0);
+      const getOffData = times.map((_, i) => Number(filteredRow[`HR_${i}_GET_OFF_NOPE`]) || 0);
 
+      // 차트 데이터 업데이트
+      setChartData({
+        labels: times,
+        datasets: [
+          { ...chartData.datasets[0], data: rideData },
+          { ...chartData.datasets[1], data: getOffData },
+        ],
+      });
+    } catch (error) {
+      console.error("Error fetching or processing data:", error);
+    }
+  };
+
+  // 데이터 처음 로드 및 역 변경 시마다 데이터 새로 불러오기
+  useEffect(() => {
+    fetchData(selectedStation);
+  }, [selectedStation]);
+
+  // 역 선택 변경 처리 함수
   const handleStationChange = (event: SelectChangeEvent) => {
     setSelectedStation(event.target.value);
   };
@@ -92,7 +97,11 @@ const StationData = () => {
     <Container maxWidth="lg" sx={{ marginTop: "3rem" }}>
       {/* 제목 */}
       <Box sx={{ textAlign: "center", marginBottom: "3rem" }}>
-        <Typography variant="h3" color="primary" sx={{ fontWeight: "bold", textShadow: "2px 2px 6px rgba(0, 0, 0, 0.3)" }}>
+        <Typography
+          variant="h3"
+          color="primary"
+          sx={{ fontWeight: "bold", textShadow: "2px 2px 6px rgba(0, 0, 0, 0.3)" }}
+        >
           {selectedStation} 시간별 승차/하차 인원
         </Typography>
         <Typography variant="body1" color="textSecondary" sx={{ fontSize: "1.1rem", marginTop: "1rem" }}>
@@ -148,10 +157,16 @@ const StationData = () => {
         </Grid>
       </Grid>
 
-      {/* 버튼 */}
+      {/* 새로고침 버튼 */}
       <Box sx={{ textAlign: "center", marginTop: "3rem" }}>
-        <Button variant="contained" color="primary" size="large" sx={{ padding: "12px 40px", borderRadius: 3, boxShadow: 3 }}>
-         새로고침
+        <Button
+          variant="contained"
+          color="primary"
+          size="large"
+          sx={{ padding: "12px 40px", borderRadius: 3, boxShadow: 3 }}
+          onClick={() => fetchData(selectedStation)} // 새로고침 시 해당 역의 데이터를 다시 불러옴
+        >
+          새로고침
         </Button>
       </Box>
     </Container>
